@@ -1,157 +1,91 @@
-# Puppet module: php
+# puppet-php
 
-This is a Puppet module for php based on the second generation layout ("NextGen") of Example42 Puppet Modules.
+## Overview
 
-Made by ALessandro Franceschi / Lab42
+Install PHP packages and configure PHP INI files, for using PHP from the CLI,
+the Apache httpd module or FastCGI.
 
-Official site: http://www.example42.com
+The module is very Red Hat Enterprise Linux focused, as the defaults try to
+change everything in ways which are typical for RHEL, but it also works on
+Debian based distributions (such as Ubuntu), and support for others should
+be easy to add.
 
-Official git repository: http://github.com/example42/puppet-php
+* `php::cli` : Simple class to install PHP's Command Line Interface
+* `php::fpm::daemon` : Simple class to install PHP's FastCGI Process Manager
+* `php::fpm::conf` : PHP FPM pool configuration definition
+* `php::ini` : Definition to create php.ini files
+* `php::mod_php5` : Simple class to install PHP's Apache httpd module
+* `php::module` : Definition to manage separately packaged PHP modules
+* `php::module::ini` : Definition to manage the ini files of separate modules
 
-Released under the terms of Apache 2 License.
+## Examples
 
-This module requires functions provided by the Example42 Puppi module (you need it even if you don't use and install Puppi)
+Create `php.ini` files for different uses, but based on the same template :
 
-For detailed info about the logic and usage patterns of Example42 modules check the DOCS directory on Example42 main modules set.
+    php::ini { '/etc/php.ini':
+      display_errors => 'On',
+      memory_limit   => '256M',
+    }
+    php::ini { '/etc/httpd/conf/php.ini':
+      mail_add_x_header => 'Off',
+      # For the parent directory
+      require => Package['httpd'],
+    }
 
-## USAGE - Basic management
+Install the latest version of the PHP command line interface in your OS's
+package manager (e.g. Yum for RHEL):
 
-* Install php with default settings
+    include php::cli
 
-        class { 'php': }
+Install version 5.3.3 of the PHP command line interface ::
 
-* Install a specific version of php package
+    class { 'php::cli': ensure => '5.3.3' }
 
-        class { 'php':
-          version => '1.0.1',
-        }
+Install the PHP Apache httpd module, using its own php configuration file
+(you will need mod_env in apache for this to work) :
 
-* Remove php package
+    class { 'php::mod_php5': inifile => '/etc/httpd/conf/php.ini' }
 
-        class { 'php':
-          absent => true
-        }
+Install PHP modules which don't have any configuration :
 
-* Enable auditing without without making changes on existing php configuration files
+    php::module { [ 'ldap', 'mcrypt' ]: }
 
-        class { 'php':
-          audit_only => true
-        }
+Configure PHP modules, which must be installed with php::module first :
 
-* Define nginx service to be notified on changes
+    php::module { [ 'pecl-apc', 'xml' ]: }
+    php::module::ini { 'pecl-apc':
+      settings => {
+        'apc.enabled'      => '1',
+        'apc.shm_segments' => '1',
+        'apc.shm_size'     => '64',
+      }
+    }
+    php::module::ini { 'xmlreader': pkgname => 'xml' }
+    php::module::ini { 'xmlwriter': ensure => absent }
 
-        class { 'php':
-          service => 'nginx'
-        }
+Install PHP FastCGI Process Manager with a single pool to be used with nginx.
+Note that we reuse the 'www' name to overwrite the example configuration :
 
-## USAGE - Module installation
+    include php::fpm::daemon
+    php::fpm::conf { 'www':
+      listen  => '127.0.0.1:9001',
+      user    => 'nginx',
+      # For the user to exist
+      require => Package['nginx'],
+    }
 
-* Install a new module
+Then from the nginx configuration :
 
-        php::module { "imagick": }
+    # PHP FastCGI backend
+    upstream wwwbackend {
+      server 127.0.0.1:9001;
+    }
+    # Proxy PHP requests to the FastCGI backend
+    location ~ \.php$ {
+      # Don't bother PHP if the file doesn't exist, return the built in
+      # 404 page (this also avoids "No input file specified" error pages)
+      if (!-f $request_filename) { return 404; }
+      include /etc/nginx/fastcgi.conf;
+      fastcgi_pass wwwbackend;
+    }
 
-* Install a specific version of a module:
-
-        php::module { "imagick":
-          version => '1.0.1';
-        }
-
-* Remove php module
-
-        php::module { "imagick":
-            absent => true,
-        }
-
-* By default module package name is php-$title for RedHat and php5-$title . You can override this prefix.
-
-        php::module { "apc":
-          module_prefix => "php-"
-        }
-
-
-## USAGE - Pear Management
-
-* Install a pear package
-
-        php::pear::module { "XML_Util": }
-
-* Install a pear package from a remote repository
-
-        php::pear::module { 'PHPUnit':
-          repository  => 'pear.phpunit.de',
-          use_package => 'no',
-        }
-
-* Install a pear package will all dependencies (--alldeps)
-
-        php::pear::module { 'PHPUnit':
-          repository  => 'pear.phpunit.de',
-          alldeps => 'true',
-        }
-
-* Set a config option
-
-        php::pear::config { http_proxy: value => "myproxy:8080" }
-
-
-## USAGE - Pecl Management
-
-* Install a pecl package
-
-        php::pecl::module { "XML_Util": }
-
-* Install a pecl package from source specifying the preferred state (note that you must have the package 'make' installed on your system)
-
-        php::pecl::module { "xhprof":
-          use_package     => 'false',
-          preferred_state => 'beta',
-        }
-
-* Set a config option
-
-        php::pecl::config { http_proxy: value => "myproxy:8080" }
-
-
-## USAGE - Overrides and Customizations
-* Use custom sources for main config file.
-
-        class { 'php':
-          source => [ "puppet:///modules/lab42/php/php.conf-${hostname}" , "puppet:///modules/lab42/php/php.conf" ],
-        }
-
-* Manage php.ini files on Debian and Suse derivatives. Here the main config file path (managed with the source/template params) defaults to /etc/php5/apache2/php.ini. To manage other files, either set a different path in config_file or use the php::conf define.
-
-        class { 'php':
-          config_file => '/etc/php5/apache2/php.ini',      # Default value on Ubuntu/Suse
-          template    => 'example42/php/php.ini-apache2.erb',
-        }
-
-        php::conf { 'php.ini-cli':
-          path     => '/etc/php5/cli/php.ini',
-          template => 'example42/php/php.ini-cli.erb',
-        }
-
-* Use custom source directory for the whole configuration dir
-
-        class { 'php':
-          source_dir       => 'puppet:///modules/lab42/php/conf/',
-          source_dir_purge => false, # Set to true to purge any existing file not present in $source_dir
-        }
-
-* Use custom template for main config file. Note that template and source arguments are alternative.
-
-        class { 'php':
-          template => 'example42/php/php.conf.erb',
-        }
-
-* Automatically include a custom subclass
-
-        class { 'php':
-          my_class => 'php::example42',
-        }
-
-
-
-
-
-[![Build Status](https://travis-ci.org/example42/puppet-php.png?branch=master)](https://travis-ci.org/example42/puppet-php)
