@@ -6,18 +6,15 @@
 #  include php::fpm::daemon
 #
 class php::fpm::daemon (
-  $ensure                      = 'present',
-  $fpm_package_name            = $::php::params::fpm_package_name,
-  $log_level                   = 'notice',
+  $ensure       = 'present',
+  $log_level    = 'notice',
   $emergency_restart_threshold = '0',
   $emergency_restart_interval  = '0',
   $process_control_timeout     = '0',
-  $process_max                 = undef,
-  $process_priority            = undef,
-  $log_owner                   = 'root',
-  $log_group                   = false,
-  $log_dir_mode                = '0770',
-) inherits ::php::params {
+  $log_owner    = 'root',
+  $log_group    = false,
+  $log_dir_mode = '0770'
+) {
 
   # Hack-ish to default to user for group too
   $log_group_final = $log_group ? {
@@ -25,36 +22,24 @@ class php::fpm::daemon (
     default => $log_group,
   }
 
-  package { $fpm_package_name: ensure => $ensure }
+  if ($ensure == 'present') {
 
-  if ( $ensure != 'absent' ) {
-    service { $fpm_service_name:
+    service { 'php5-fpm':
       ensure    => running,
       enable    => true,
-      restart   => "service ${fpm_service_name} reload",
+      restart   => 'service php5-fpm reload',
       hasstatus => true,
-      require   => Package[$fpm_package_name],
+      require   => Package['php5-fpm'],
     }
 
-    # When running FastCGI, we don't always use the same user
-    file { '/var/log/php-fpm':
-      ensure  => directory,
-      owner   => $log_owner,
-      group   => $log_group_final,
-      mode    => $log_dir_mode,
-      require => Package[$fpm_package_name],
-    }
-
-    file { "${fpm_conf_dir}/php-fpm.conf":
-      notify  => Service[$fpm_service_name],
+    file { '/etc/php5/fpm/php-fpm.conf':
+      notify  => Service['php5-fpm'],
       content => template('php/fpm/php-fpm.conf.erb'),
-      owner   => 'root',
-      group   => 'root',
-      mode    => 0644,
-      require => Package[$fpm_package_name],
+      owner   => root,
+      group   => root,
+      mode    => '0644',
     }
 
   }
 
 }
-
