@@ -18,6 +18,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	virtualbox__intnet: true
   
   config.vm.network "forwarded_port", guest: 80, host: 8080
+  #RabbitMQ Config page
+  config.vm.network "forwarded_port", guest: 15672, host: 15672
   
 
   #http://docs.vagrantup.com/v2/synced-folders/basic_usage.html
