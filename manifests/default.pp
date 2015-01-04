@@ -9,7 +9,7 @@ include tools
 
 #https://forge.puppetlabs.com/puppetlabs/apache
 include apache
-apache::mod::rewrite
+#apache::mod::rewrite
 
 
 #include '::mysql::server'
@@ -32,18 +32,37 @@ apache::mod::rewrite
 
 include php
 
-class { ['php::apache','php::cli','php::extension::curl','php::extension::imagick','php::extension::mcrypt','php::extension::memcached','php::extension::mysql','php::extension::xdebug','php::composer','php::composer::auto_update']: }
-class { 'php::phpunit':
-  ensure => latest,
+class {
+	[
+		'php::apache',
+		'php::cli',
+		
+		'php::extension::curl',
+		'php::extension::imagick',
+		'php::extension::mcrypt',
+		'php::extension::memcached',
+		'php::extension::mysql',
+		'php::extension::xdebug',
+		
+		'php::composer',
+		'php::composer::auto_update'
+	]: 
 }
 
-
+#Error: Could not find resource 'Exec[php::pear::auto_discover]' for relationship on 'Package[pear.phpunit.de/PHPUnit]'
+#class { 'php::phpunit':
+#  ensure => latest,
+#}
 
 include gcc
+
 package { 'gdb':
 	ensure => 'present',
-	}
+}
 
+package { 'cmake':
+	ensure => 'present',
+}
 	
 include git
 git::config { 'user.name':
@@ -54,7 +73,12 @@ git::config { 'user.email':
   value => 'antoniocs@gmail.com',
 }
 
-package { 'puppet': 
+package { 'puppet':
 	ensure => 'latest',
 }
 
+package { 'inoticoming':
+	ensure => 'present',
+}
+
+include '::rabbitmq'
