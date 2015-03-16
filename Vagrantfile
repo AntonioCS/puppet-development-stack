@@ -17,19 +17,20 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.network "private_network", ip: "192.168.33.10",
 	virtualbox__intnet: true
   
-  config.vm.network "forwarded_port", guest: 80, host: 8080
+  config.vm.network "forwarded_port", guest: 80, host: 80
   #RabbitMQ Config page
   config.vm.network "forwarded_port", guest: 15672, host: 15672
-  
+
 
   #http://docs.vagrantup.com/v2/synced-folders/basic_usage.html
-  config.vm.synced_folder "C:/Users/antoniocs/Projects", "/vagrant_data"
+  config.vm.synced_folder "C:/Users/antoniocs/Projects", "/vagrant_data", :mount_options => ['dmode=775', 'fmode=775']
+  config.vm.synced_folder '.', '/vagrant', :mount_options => ['dmode=770', 'fmode=770']
   #prevent syncing of the vagrant folder
   #config.vm.synced_folder '.', '/vagrant', disabled: true
-  
-  config.vm.provider "virtualbox" do |vb|    
-    vb.gui = false	   
-    vb.memory = 2048	
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.gui = false
+    vb.memory = 2048
 	#vb.name = "acs_dev"
   end  
   
@@ -40,7 +41,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     puppet.module_path = "modules"
 	
 	#http://blog.doismellburning.co.uk/2013/01/19/upgrading-puppet-in-vagrant-boxes/
+	#http://stackoverflow.com/questions/28234437/trying-to-use-hiera-with-vagrant-and-puppet
+
 	#puppet.options = "--hiera_config /etc/hiera.yaml"
   end
-  
 end
